@@ -77,28 +77,36 @@ class IMAGINELink(ModelLink):
             # Obtain the data errors
             data_err = np.diag(cov.data)
 
-            # Determine the coordinates type
-            coord_type = meas.coords['type']
-
-            # Extract the coordinates accordingly
-            if(coord_type == 'cartesian'):
-                coords = list(zip(meas.coords['x'].to_value(),
-                                  meas.coords['y'].to_value(),
-                                  meas.coords['z'].to_value()))
-            else:
-                coords = list(zip(meas.coords['lon'].to_value(),
-                                  meas.coords['lat'].to_value()))
+            # Convert coordinates into a format for PRISM
+            coords_type, coords_list = self.convert_coords(meas.coords)
 
             # Add every data point individually
-            for coord, val, err in zip(coords, data_val, data_err):
+            for coord, val, err in zip(coords_list, data_val, data_err):
                 # Construct full data_idx
-                idx = (*key, coord_type, *coord)
+                idx = (*key, coords_type, *coord)
 
                 # Add data point to model_data
                 model_data[idx] = [val, err]
 
         # Return model_data
         return(model_data)
+
+    # This function converts the coords dict to a proper format
+    def convert_coords(self, coords):
+        # Determine the coordinates type
+        coords_type = coords['type']
+
+        # Extract the coordinates accordingly
+        if(coords_type == 'cartesian'):
+            coords_list = list(zip(coords['x'].to_value(),
+                                   coords['y'].to_value(),
+                                   coords['z'].to_value()))
+        else:
+            coords_list = list(zip(coords['lon'].to_value(),
+                                   coords['lat'].to_value()))
+
+        # Return coords_type and coords_list
+        return(coords_type, coords_list)
 
     # Override call_model
     def call_model(self, emul_i, par_set, data_idx):
@@ -115,19 +123,31 @@ class IMAGINELink(ModelLink):
         par_set = self._to_unit_space(par_set)
 
         # Evaluate the IMAGINE pipeline
-        observables = self._img_pipe_obj._get_observables(par_set)
+        sims = self._img_pipe_obj._get_observables(par_set)
 
         # Create empty dict of model_data
         mod_dict = {}
 
         # Loop over all observables
-        for key, sim in observables.archive.items():
-            pass
+        for key, obs in sims.archive.items():
+            # Convert coordinates into a format for PRISM
+            coords_type, coords_list = self.convert_coords(obs.coords)
 
+            # Loop over all values with appropriate coordinates
+            # TODO: Currently only uses the first ensemble
+            for coord, val in zip(coords_list, obs.data[0]):
+                # Obtain data_idx
+                idx = (*key, coords_type, *coord)
+
+                # Add value
+                mod_dict[idx] = val
+
+        # Return mod_dict
+        return(mod_dict)
 
     # Override get_md_var
-    def get_md_var(self, emul_i, par_set, data_idx):
-        pass
+    def get_md_var(self, *args, **kwargs):
+        super().get_md_var(*args, **kwargs)
 
 
 # %% FUNCTION DEFINITIONS
