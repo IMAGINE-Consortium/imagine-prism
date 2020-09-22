@@ -2,99 +2,9 @@
 
 
 # %% IMPORTS
-# Built-in imports
-import os
-from os import path
-
 # Package imports
 import astropy.units as apu
-import e13tools as e13
-from imagine.pipelines import Pipeline as imagine_Pipeline
 import numpy as np
-from prism import Pipeline as prism_Pipeline
-
-# IMAGINE-PRISM imports
-from imagine_prism.modellink import IMAGINELink
-
-
-# %% FUNCTION DEFINITIONS
-# Function factory that returns special PRISMPipeline class instances
-def get_PRISMPipeline_obj(imagine_pipeline_obj, *args, **kwargs):
-    # Save provided imagine_pipeline_obj
-    img_pipe = imagine_pipeline_obj
-
-    # Make tuple of overridden attributes
-    overridden_attrs = ('__init__', 'call')
-
-    # %% PRISMPIPELINE CLASS DEFINITION
-    class PRISMPipeline(imagine_Pipeline):
-        # Override constructor
-        def __init__(self, *args, **kwargs):
-
-            # Initialize IMAGINELink
-            modellink_obj = IMAGINELink(img_pipe)
-
-            # Initialize PRISM Pipeline
-            self._prism_pipe = prism_Pipeline(modellink_obj, *args, **kwargs)
-
-            # Store PRISM's communicator
-            self._prism_comm = self._prism_pipe._comm
-
-            # Create a directory for storing chains for IMAGINE and set it
-            chain_dir = path.join(self._prism_pipe._working_dir,
-                                  'imagine_chains')
-
-            # Controller creates directory if necessary
-            if self._prism_pipe._is_controller and not path.exists(chain_dir):
-                os.mkdir(chain_dir)
-            self._prism_comm.Barrier()
-
-            # Set directory
-            img_pipe.chains_directory = chain_dir
-
-        # If requested attribute is not a method, use img_pipe for getattr
-        def __getattribute__(self, name):
-            if name not in overridden_attrs and name in img_pipe.__dir__():
-                return(getattr(img_pipe, name))
-            else:
-                return(super().__getattribute__(name))
-
-        # If requested attribute is not a method, use img_pipe for setattr
-        def __setattr__(self, name, value):
-            if name not in overridden_attrs and name in img_pipe.__dir__():
-                setattr(img_pipe, name, value)
-            else:
-                super().__setattr__(name, value)
-
-        # If requested attribute is not a method, use img_pipe for delattr
-        def __delattr__(self, name):
-            if name not in overridden_attrs and name in img_pipe.__dir__():
-                delattr(img_pipe, name)
-            else:
-                super().__delattr__(name)
-
-        # %% CLASS PROPERTIES
-        @property
-        def prism_pipe(self):
-            """
-            :obj:`prism.Pipeline`: The PRISM Pipeline object that is used in
-            this :obj:`~PRISMPipeline` object.
-
-            """
-
-            return(self._prism_pipe)
-
-        # %% USER METHODS
-        # Override call
-        def call(self, *args, **kwargs):
-            self._img_pipe.call(*args, **kwargs)
-
-    # %% REMAINDER OF FUNCTION FACTORY
-    # Initialize PRISMPipeline
-    pipe = PRISMPipeline(*args, **kwargs)
-
-    # Return it
-    return(pipe)
 
 
 # %% FUNCTION DEFINITIONS
@@ -126,6 +36,7 @@ def get_mock_data():
 
 # %% MAIN SCRIPT
 if __name__ == '__main__':
+    # Package imports
     from imagine.fields import (
         CosThermalElectronDensityFactory, NaiveGaussianMagneticFieldFactory,
         UniformGrid)
@@ -134,6 +45,9 @@ if __name__ == '__main__':
     from imagine.pipelines import UltranestPipeline
     from imagine.priors import FlatPrior
     from imagine.simulators import TestSimulator
+
+    # IMAGINE-PRISM imports
+    from imagine_prism import PRISMPipeline
 
     # Obtain data
     data = get_mock_data()
@@ -180,5 +94,4 @@ if __name__ == '__main__':
                                  ensemble_size=150)
 
     # Create PRISMPipeline object
-    pipe = get_PRISMPipeline_obj(img_pipe, root_dir='tests',
-                                 working_dir='imagine')
+    pipe = PRISMPipeline(img_pipe, root_dir='tests', working_dir='imagine')

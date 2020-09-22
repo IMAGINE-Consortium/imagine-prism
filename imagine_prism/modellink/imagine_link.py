@@ -26,6 +26,12 @@ class IMAGINELink(ModelLink):
         super().__init__(model_parameters=model_parameters,
                          model_data=model_data)
 
+        # Obtain the parameter names in IMAGINE
+        par_names = self._img_pipe.get_par_names()
+
+        # Obtain the sorting order PRISM->IMAGINE
+        self._par_index = list(map(self._par_name.index, par_names))
+
     # This function retrieves the model parameters from the IMAGINE Pipeline
     def _get_model_parameters(self):
         # Create empty dict of model parameters
@@ -102,14 +108,8 @@ class IMAGINELink(ModelLink):
 
     # Override call_model
     def call_model(self, emul_i, par_set, data_idx):
-        # Obtain the names of all parameters
-        par_names = self._img_pipe.get_par_names()
-
-        # Obtain the sorting order
-        index = list(map(self._par_name.index, par_names))
-
         # Convert the provided par_dict to a par_set
-        par_set = np.array(par_set.values())[index]
+        par_set = np.array(par_set.values())[self._par_index]
 
         # Convert par_set to unit_space
         par_set = self._to_unit_space(par_set)
