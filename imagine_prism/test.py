@@ -2,152 +2,99 @@
 
 
 # %% IMPORTS
+# Built-in imports
+import os
+from os import path
+
 # Package imports
 import astropy.units as apu
 import e13tools as e13
-from imagine.fields import (
-    CosThermalElectronDensityFactory, NaiveGaussianMagneticFieldFactory,
-    UniformGrid)
-from imagine.likelihoods import Likelihood, EnsembleLikelihood
-from imagine.observables import Covariances, Measurements, TabularDataset
-from imagine.pipelines import UltranestPipeline
-from imagine.priors import FlatPrior
-from imagine.simulators import TestSimulator
+from imagine.pipelines import Pipeline as imagine_Pipeline
 import numpy as np
-from prism import Pipeline
-from prism.modellink import ModelLink
+from prism import Pipeline as prism_Pipeline
+
+# IMAGINE-PRISM imports
+from imagine_prism.modellink import IMAGINELink
 
 
-# %% CLASS DEFINITIONS
-# Define the IMAGINELink class
-class IMAGINELink(ModelLink):
-    # Override constructor
-    def __init__(self, imagine_pipeline_obj):
-        # Save provided imagine_pipeline_obj
-        self._img_pipe_obj = imagine_pipeline_obj
+# %% FUNCTION DEFINITIONS
+# Function factory that returns special PRISMPipeline class instances
+def get_PRISMPipeline_obj(imagine_pipeline_obj, *args, **kwargs):
+    # Save provided imagine_pipeline_obj
+    img_pipe = imagine_pipeline_obj
 
-        # Obtain model_parameters and model_data
-        model_parameters = self._get_model_parameters()
-        model_data = self._get_model_data()
+    # Make tuple of overridden attributes
+    overridden_attrs = ('__init__', 'call')
 
-        # Call super constructor
-        super().__init__(model_parameters=model_parameters,
-                         model_data=model_data)
+    # %% PRISMPIPELINE CLASS DEFINITION
+    class PRISMPipeline(imagine_Pipeline):
+        # Override constructor
+        def __init__(self, *args, **kwargs):
 
-    # This function retrieves the model parameters from the IMAGINE Pipeline
-    def _get_model_parameters(self):
-        # Create empty dict of model parameters
-        model_par = {}
+            # Initialize IMAGINELink
+            modellink_obj = IMAGINELink(img_pipe)
 
-        # Loop over all factories in the Pipeline
-        for factory in self._img_pipe_obj._factory_list:
-            # Loop over all active parameters in this factory
-            for par in factory.active_parameters:
-                # Obtain the range and estimate for this parameter
-                rng = factory.parameter_ranges[par].to_value()
-                est = factory.default_parameters[par].to_value()
+            # Initialize PRISM Pipeline
+            self._prism_pipe = prism_Pipeline(modellink_obj, *args, **kwargs)
 
-                # Add this parameter to the dict
-                model_par[par] = [*rng, est]
+            # Store PRISM's communicator
+            self._prism_comm = self._prism_pipe._comm
 
-        # Return model_par
-        return(model_par)
+            # Create a directory for storing chains for IMAGINE and set it
+            chain_dir = path.join(self._prism_pipe._working_dir,
+                                  'imagine_chains')
 
-    # This function retrieves the model data from the IMAGINE Pipeline
-    def _get_model_data(self):
-        # Create empty dict of model data
-        model_data = {}
+            # Controller creates directory if necessary
+            if self._prism_pipe._is_controller and not path.exists(chain_dir):
+                os.mkdir(chain_dir)
+            self._prism_comm.Barrier()
 
-        # Obtain the measurements and covariances dicts
-        meas_dct = self._img_pipe_obj._likelihood._measurement_dict
-        cov_dct = self._img_pipe_obj._likelihood._covariance_dict
+            # Set directory
+            img_pipe.chains_directory = chain_dir
 
-        # Obtain the keys of all datasets
-        keys = list(meas_dct._archive.keys())
+        # If requested attribute is not a method, use img_pipe for getattr
+        def __getattribute__(self, name):
+            if name not in overridden_attrs and name in img_pipe.__dir__():
+                return(getattr(img_pipe, name))
+            else:
+                return(super().__getattribute__(name))
 
-        # Loop over all keys
-        for key in keys:
-            # Obtain the corresponding measurements and covariances
-            meas = meas_dct[key]
-            cov = cov_dct[key]
+        # If requested attribute is not a method, use img_pipe for setattr
+        def __setattr__(self, name, value):
+            if name not in overridden_attrs and name in img_pipe.__dir__():
+                setattr(img_pipe, name, value)
+            else:
+                super().__setattr__(name, value)
 
-            # Obtain the data values
-            data_val = meas.data[0]
+        # If requested attribute is not a method, use img_pipe for delattr
+        def __delattr__(self, name):
+            if name not in overridden_attrs and name in img_pipe.__dir__():
+                delattr(img_pipe, name)
+            else:
+                super().__delattr__(name)
 
-            # Obtain the data errors
-            data_err = np.diag(cov.data)
+        # %% CLASS PROPERTIES
+        @property
+        def prism_pipe(self):
+            """
+            :obj:`prism.Pipeline`: The PRISM Pipeline object that is used in
+            this :obj:`~PRISMPipeline` object.
 
-            # Convert coordinates into a format for PRISM
-            coords_type, coords_list = self.convert_coords(meas.coords)
+            """
 
-            # Add every data point individually
-            for coord, val, err in zip(coords_list, data_val, data_err):
-                # Construct full data_idx
-                idx = (*key, coords_type, *coord)
+            return(self._prism_pipe)
 
-                # Add data point to model_data
-                model_data[idx] = [val, err]
+        # %% USER METHODS
+        # Override call
+        def call(self, *args, **kwargs):
+            self._img_pipe.call(*args, **kwargs)
 
-        # Return model_data
-        return(model_data)
+    # %% REMAINDER OF FUNCTION FACTORY
+    # Initialize PRISMPipeline
+    pipe = PRISMPipeline(*args, **kwargs)
 
-    # This function converts the coords dict to a proper format
-    def convert_coords(self, coords):
-        # Determine the coordinates type
-        coords_type = coords['type']
-
-        # Extract the coordinates accordingly
-        if(coords_type == 'cartesian'):
-            coords_list = list(zip(coords['x'].to_value(),
-                                   coords['y'].to_value(),
-                                   coords['z'].to_value()))
-        else:
-            coords_list = list(zip(coords['lon'].to_value(),
-                                   coords['lat'].to_value()))
-
-        # Return coords_type and coords_list
-        return(coords_type, coords_list)
-
-    # Override call_model
-    def call_model(self, emul_i, par_set, data_idx):
-        # Obtain the names of all parameters
-        par_names = self._img_pipe_obj.get_par_names()
-
-        # Obtain the sorting order
-        index = list(map(self._par_name.index, par_names))
-
-        # Convert the provided par_dict to a par_set
-        par_set = np.array(par_set.values())[index]
-
-        # Convert par_set to unit_space
-        par_set = self._to_unit_space(par_set)
-
-        # Evaluate the IMAGINE pipeline
-        sims = self._img_pipe_obj._get_observables(par_set)
-
-        # Create empty dict of model_data
-        mod_dict = {}
-
-        # Loop over all observables
-        for key, obs in sims.archive.items():
-            # Convert coordinates into a format for PRISM
-            coords_type, coords_list = self.convert_coords(obs.coords)
-
-            # Loop over all values with appropriate coordinates
-            # TODO: Currently only uses the first ensemble
-            for coord, val in zip(coords_list, obs.data[0]):
-                # Obtain data_idx
-                idx = (*key, coords_type, *coord)
-
-                # Add value
-                mod_dict[idx] = val
-
-        # Return mod_dict
-        return(mod_dict)
-
-    # Override get_md_var
-    def get_md_var(self, *args, **kwargs):
-        super().get_md_var(*args, **kwargs)
+    # Return it
+    return(pipe)
 
 
 # %% FUNCTION DEFINITIONS
@@ -179,6 +126,15 @@ def get_mock_data():
 
 # %% MAIN SCRIPT
 if __name__ == '__main__':
+    from imagine.fields import (
+        CosThermalElectronDensityFactory, NaiveGaussianMagneticFieldFactory,
+        UniformGrid)
+    from imagine.likelihoods import EnsembleLikelihood
+    from imagine.observables import Covariances, Measurements, TabularDataset
+    from imagine.pipelines import UltranestPipeline
+    from imagine.priors import FlatPrior
+    from imagine.simulators import TestSimulator
+
     # Obtain data
     data = get_mock_data()
 
@@ -218,10 +174,11 @@ if __name__ == '__main__':
     likelihood = EnsembleLikelihood(mock_data, mock_cov)
 
     # Create pipeline
-    pipeline = UltranestPipeline(simulator=simulator,
+    img_pipe = UltranestPipeline(simulator=simulator,
                                  factory_list=factories,
                                  likelihood=likelihood,
                                  ensemble_size=150)
 
-    # Create IMAGINELink object
-    modellink_obj = IMAGINELink(pipeline)
+    # Create PRISMPipeline object
+    pipe = get_PRISMPipeline_obj(img_pipe, root_dir='tests',
+                                 working_dir='imagine')
