@@ -133,9 +133,9 @@ class PRISMPipeline(imagine_Pipeline):
                 '_evaluate_sam_set', emul_i, sam, 'analyze')
             lnprior = 0
 
-        # If par_set is plausible, call super method
+        # If par_set is plausible, call likelihood method of _img_pipe
         if len(impl_sam):
-            return(lnprior+super()._core_likelihood(cube))
+            return(lnprior+self._img_pipe._core_likelihood(cube))
 
         # If par_set is not plausible, return -inf
         else:
