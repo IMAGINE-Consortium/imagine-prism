@@ -58,7 +58,7 @@ class PRISMPipeline(imagine_Pipeline):
         # Set use_impl_prior to False
         self._use_impl_prior = False
 
-    # If requested attribute is not a method, use comm for getattr
+    # Override method to use attributes from _img_pipe
     def __getattribute__(self, name):
         if(name not in PRISMPipeline.overridden_attrs and
            not name.startswith('__') and
@@ -67,7 +67,7 @@ class PRISMPipeline(imagine_Pipeline):
         else:
             return(super().__getattribute__(name))
 
-    # If requested attribute is not a method, use comm for setattr
+    # Override method to use attributes from _img_pipe
     def __setattr__(self, name, value):
         if(name not in PRISMPipeline.overridden_attrs
            and not name.startswith('__') and
@@ -76,7 +76,7 @@ class PRISMPipeline(imagine_Pipeline):
         else:
             super().__setattr__(name, value)
 
-    # If requested attribute is not a method, use comm for delattr
+    # Override method to use attributes from _img_pipe
     def __delattr__(self, name):
         if(name not in PRISMPipeline.overridden_attrs
            and not name.startswith('__') and
@@ -84,6 +84,10 @@ class PRISMPipeline(imagine_Pipeline):
             delattr(self._img_pipe, name)
         else:
             super().__delattr__(name)
+
+    # Override method to display attributes of both classes
+    def __dir__(self):
+        return(set(dir(self._img_pipe)).union(super().__dir__()))
 
     # %% CLASS PROPERTIES
     @property
