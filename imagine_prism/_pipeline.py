@@ -20,11 +20,47 @@ __all__ = ['PRISMPipeline']
 
 # %% CLASS DEFINITIONS
 class PRISMPipeline(imagine_Pipeline):
+    """
+    Defines a custom :class:`imagine.pipelines.Pipeline` class, the
+    :class:`~PRISMPipeline` class.
+
+    This class wraps a provided :class:`imagine.pipelines.Pipeline` class using
+    the *PRISM* pipeline, and functions as both pipelines simultaneously.
+    The internal *PRISM* pipeline can be accessed with the :attr:`~prism_pipe`
+    attribute.
+    Likelihood calculations in this class will perform *PRISM*'s hybrid
+    sampling: Samples are first evaluated in the *PRISM* pipeline and only
+    evaluated in the *IMAGINE* pipeline if the emulator flags this sample as
+    plausible.
+    For more information on hybrid sampling, see
+    https://prism-tool.readthedocs.io/en/latest/user/using_prism.html#hybrid-sampling
+
+    """
+
     # Class attributes
     overridden_attrs = ('_img_pipe', '_core_likelihood')
 
     # Override constructor
     def __init__(self, imagine_pipeline_obj, *args, **kwargs):
+        """
+        Initializes an instance of the :class:`~PRISMPipeline` class.
+
+        Parameters
+        ----------
+        imagine_pipeline_obj : :obj:`imagine.pipelines.Pipeline` object
+            The *IMAGINE* pipeline object that *PRISM* must wrap around.
+
+        Optional
+        --------
+        args : positional arguments
+            Positional arguments that must be provided to the constructor of
+            the :class:`prism.Pipeline` class.
+        kwargs : keyword arguments
+            Keyword arguments that must be provided to the constructor of the
+            :class:`prism.Pipeline` class.
+
+        """
+
         # Save provided imagine_pipeline_obj
         self._img_pipe = imagine_pipeline_obj
 
@@ -93,7 +129,7 @@ class PRISMPipeline(imagine_Pipeline):
     @property
     def prism_pipe(self):
         """
-        :obj:`prism.Pipeline`: The PRISM Pipeline object that is used in
+        :obj:`prism.Pipeline`: The *PRISM* pipeline object that is used in
         this :obj:`~PRISMPipeline` object.
 
         """

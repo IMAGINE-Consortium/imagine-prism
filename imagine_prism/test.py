@@ -35,7 +35,7 @@ def get_mock_data():
 
 
 # %% MAIN SCRIPT
-if __name__ == '__main__':
+def tutorial_one():
     # Package imports
     from imagine.fields import (
         CosThermalElectronDensityFactory, NaiveGaussianMagneticFieldFactory,
@@ -75,8 +75,8 @@ if __name__ == '__main__':
     # Create factory for magnetic field
     B_factory = NaiveGaussianMagneticFieldFactory(grid=grid)
     B_factory.active_parameters = ('a0', 'b0')
-    B_factory.priors = {'a0': FlatPrior(interval=[-5, 5]*apu.microgauss),
-                        'b0': FlatPrior(interval=[0, 10]*apu.microgauss)}
+    B_factory.priors = {'a0': FlatPrior([-5, 5]*apu.microgauss),
+                        'b0': FlatPrior([0, 10]*apu.microgauss)}
 
     # Combine factories together
     factories = [ne_factory, B_factory]
@@ -94,4 +94,111 @@ if __name__ == '__main__':
                                  ensemble_size=150)
 
     # Create PRISMPipeline object
-    pipe = PRISMPipeline(img_pipe, root_dir='tests', working_dir='imagine')
+    pipe = PRISMPipeline(img_pipe, root_dir='tests', working_dir='imagine_1')
+
+    # Return pipe
+    return(pipe)
+
+
+def tutorial_five():
+    # Package imports
+    import os
+    # External packages
+    import numpy as np
+    import healpy as hp
+    import astropy.units as u
+    import corner
+    import matplotlib.pyplot as plt
+    import cmasher as cmr
+    # IMAGINE
+    import imagine as img
+    import imagine.observables as img_obs
+    ## WMAP field factories
+    from imagine.fields.hamx import BregLSA, BregLSAFactory
+    from imagine.fields.hamx import TEregYMW16, TEregYMW16Factory
+    from imagine.fields.hamx import CREAna, CREAnaFactory
+
+    # IMAGINE-PRISM imports
+    from imagine_prism import PRISMPipeline
+
+    ## Sets the resolution
+    nside=2
+    size = 12*nside**2
+
+    # Generates the fake datasets
+    sync_dset = img_obs.SynchrotronHEALPixDataset(data=np.empty(size)*u.K,
+                                                  frequency=23, typ='I')
+    fd_dset = img_obs.FaradayDepthHEALPixDataset(data=np.empty(size)*u.rad/u.m**2)
+
+    # Appends them to an Observables Dictionary
+    trigger = img_obs.Measurements(sync_dset, fd_dset)
+
+    # Prepares the Hammurabi simmulator for the mock generation
+    mock_generator = img.simulators.Hammurabi(measurements=trigger)
+
+    # BregLSA field
+    breg_lsa = BregLSA(parameters={'b0':3, 'psi0': 27.0, 'psi1': 0.9, 'chi0': 25.0})
+
+    # CREAna field
+    cre_ana = CREAna(parameters={'alpha': 3.0, 'beta': 0.0, 'theta': 0.0,
+                                 'r0': 5.0, 'z0': 1.0,
+                                 'E0': 20.6, 'j0': 0.0217})
+
+    # TEregYMW16 field
+    tereg_ymw16 = TEregYMW16(parameters={})
+
+    ## Generate mock data (run hammurabi)
+    outputs = mock_generator([breg_lsa, cre_ana, tereg_ymw16])
+
+    ## Collect the outputs
+    mockedI = outputs[('sync', 23.0, nside, 'I')].global_data[0]
+    mockedRM = outputs[('fd', None, nside, None)].global_data[0]
+    dm=np.mean(mockedI)
+    dv=np.std(mockedI)
+
+    ## Add some noise that's just proportional to the average sync I by the factor err
+    err=0.01
+    dataI = (mockedI + np.random.normal(loc=0, scale=err*dm, size=size)) << u.K
+    errorI = ((err*dm)**2) << u.K
+    sync_dset = img_obs.SynchrotronHEALPixDataset(data=dataI, error=errorI,
+                                                  frequency=23, typ='I')
+
+    ## Just 0.01*50 rad/m^2 of error for noise.
+    dataRM = (mockedRM + np.random.normal(loc=0.,scale=err*50.,size=12*nside**2))*u.rad/u.m/u.m
+    errorRM = ((err*50.)**2) << u.rad/u.m**2
+    fd_dset = img_obs.FaradayDepthHEALPixDataset(data=dataRM, error=errorRM)
+
+    mock_data = img_obs.Measurements(sync_dset, fd_dset)
+    mock_cov = img_obs.Covariances(sync_dset, fd_dset)
+
+    ## Use an ensemble to estimate the galactic variance
+    likelihood = img.likelihoods.EnsembleLikelihood(mock_data, mock_cov)
+
+    breg_factory = BregLSAFactory()
+    breg_factory.active_parameters = ('b0', 'psi0')
+    breg_factory.priors = {'b0':  img.priors.FlatPrior([0, 10]),
+                          'psi0': img.priors.FlatPrior([0, 50])}
+    breg_factory.default_parameters = {'b0': 3,
+                                       'psi0': 27}
+    ## Fixed CR model
+    cre_factory = CREAnaFactory()
+    ## Fixed FE model
+    fereg_factory = TEregYMW16Factory()
+
+    # Final Field factory list
+    factory_list = [breg_factory, cre_factory, fereg_factory]
+
+    simulator = img.simulators.Hammurabi(measurements=mock_data)
+
+    # Assembles the pipeline using MultiNest as sampler
+    pipeline = img.pipelines.MultinestPipeline(simulator=simulator,
+                                               factory_list=factory_list,
+                                               likelihood=likelihood,
+                                               ensemble_size=1)
+    pipeline.sampling_controllers = {'n_live_points': 50}
+
+    # Create PRISMPipeline object
+    pipe = PRISMPipeline(pipeline, root_dir='tests', working_dir='imagine_5')
+
+    # Return pipe
+    return(pipe)
