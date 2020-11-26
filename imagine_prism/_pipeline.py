@@ -74,16 +74,17 @@ class PRISMPipeline(imagine_Pipeline):
         # Store PRISM's communicator
         self._prism_comm = self._prism_pipe._comm
 
-        # Create a directory for storing chains for IMAGINE and set it
-        chain_dir = path.join(self._prism_pipe._working_dir, 'imagine_chains')
+        # Create a directory for storing runs for IMAGINE and set it
+        run_dir = path.join(self._prism_pipe._working_dir, 'imagine_run')
 
         # Controller creates directory if necessary
-        if self._prism_pipe._is_controller and not path.exists(chain_dir):
-            os.mkdir(chain_dir)
+        if self._prism_pipe._is_controller and not path.exists(run_dir):
+            os.mkdir(run_dir)
         self._prism_comm.Barrier()
 
-        # Set directory
-        self._img_pipe.chains_directory = chain_dir
+        # Set directories
+        self._img_pipe.run_directory = run_dir
+        self._img_pipe.chains_directory = None
 
         # Obtain the parameter names in IMAGINE
         par_names = self._img_pipe.get_par_names()
@@ -96,9 +97,9 @@ class PRISMPipeline(imagine_Pipeline):
 
     # Override method to use attributes from _img_pipe
     def __getattribute__(self, name):
-        if(name not in PRISMPipeline.overridden_attrs and
-           not name.startswith('__') and
-           name in self._img_pipe.__dir__()):
+        if(name not in PRISMPipeline.overridden_attrs
+           and not name.startswith('__')
+           and name in self._img_pipe.__dir__()):
             return(getattr(self._img_pipe, name))
         else:
             return(super().__getattribute__(name))
@@ -106,8 +107,8 @@ class PRISMPipeline(imagine_Pipeline):
     # Override method to use attributes from _img_pipe
     def __setattr__(self, name, value):
         if(name not in PRISMPipeline.overridden_attrs
-           and not name.startswith('__') and
-           name in self._img_pipe.__dir__()):
+           and not name.startswith('__')
+           and name in self._img_pipe.__dir__()):
             setattr(self._img_pipe, name, value)
         else:
             super().__setattr__(name, value)
@@ -115,8 +116,8 @@ class PRISMPipeline(imagine_Pipeline):
     # Override method to use attributes from _img_pipe
     def __delattr__(self, name):
         if(name not in PRISMPipeline.overridden_attrs
-           and not name.startswith('__') and
-           name in self._img_pipe.__dir__()):
+           and not name.startswith('__')
+           and name in self._img_pipe.__dir__()):
             delattr(self._img_pipe, name)
         else:
             super().__delattr__(name)

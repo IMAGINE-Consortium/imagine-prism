@@ -75,8 +75,8 @@ def tutorial_one():
     # Create factory for magnetic field
     B_factory = NaiveGaussianMagneticFieldFactory(grid=grid)
     B_factory.active_parameters = ('a0', 'b0')
-    B_factory.priors = {'a0': FlatPrior([-5, 5]*apu.microgauss),
-                        'b0': FlatPrior([0, 10]*apu.microgauss)}
+    B_factory.priors = {'a0': FlatPrior(*[-5, 5]*apu.microgauss),
+                        'b0': FlatPrior(*[0, 10]*apu.microgauss)}
 
     # Combine factories together
     factories = [ne_factory, B_factory]
@@ -169,15 +169,14 @@ def tutorial_five():
     fd_dset = img_obs.FaradayDepthHEALPixDataset(data=dataRM, error=errorRM)
 
     mock_data = img_obs.Measurements(sync_dset, fd_dset)
-    mock_cov = img_obs.Covariances(sync_dset, fd_dset)
 
     ## Use an ensemble to estimate the galactic variance
-    likelihood = img.likelihoods.EnsembleLikelihood(mock_data, mock_cov)
+    likelihood = img.likelihoods.EnsembleLikelihood(mock_data)
 
     breg_factory = BregLSAFactory()
     breg_factory.active_parameters = ('b0', 'psi0')
-    breg_factory.priors = {'b0':  img.priors.FlatPrior([0, 10]),
-                          'psi0': img.priors.FlatPrior([0, 50])}
+    breg_factory.priors = {'b0':  img.priors.FlatPrior(0, 10),
+                          'psi0': img.priors.FlatPrior(0, 50)}
     breg_factory.default_parameters = {'b0': 3,
                                        'psi0': 27}
     ## Fixed CR model
@@ -198,7 +197,8 @@ def tutorial_five():
     pipeline.sampling_controllers = {'n_live_points': 50}
 
     # Create PRISMPipeline object
-    pipe = PRISMPipeline(pipeline, root_dir='tests', working_dir='imagine_5')
+    pipe = PRISMPipeline(pipeline, root_dir='tests', working_dir='imagine_5',
+                         prism_par={'n_sam_init': 100})
 
     # Return pipe
     return(pipe)
