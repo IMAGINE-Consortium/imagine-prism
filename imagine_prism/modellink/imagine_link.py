@@ -156,9 +156,6 @@ class IMAGINELink(ModelLink):
         # Convert the provided par_dict to a par_set
         par_set = np.array(par_set.values())[self._par_index]
 
-        # Convert par_set to unit_space
-        par_set = self._to_unit_space(par_set)
-
         # Evaluate the IMAGINE pipeline
         sims = self._img_pipe._get_observables(par_set)
 
