@@ -197,7 +197,7 @@ def tutorial_five():
     pipeline.sampling_controllers = {'n_live_points': 50}
 
     # Create PRISMPipeline object
-    pipe = PRISMPipeline(pipeline, root_dir='tests', working_dir='imagine_5',
+    pipe = PRISMPipeline(pipeline, root_dir='/home/x1313e/stack/PhD/PRISM_Root/tests', working_dir='imagine_5',
                          prism_par={'n_sam_init': 100})
 
     # Return pipe

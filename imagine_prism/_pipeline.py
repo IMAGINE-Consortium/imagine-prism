@@ -95,30 +95,41 @@ class PRISMPipeline(imagine_Pipeline):
         # Set use_impl_prior to False
         self._use_impl_prior = False
 
+        # Modify the _core_likelihood functions
+        self._core_likelihood_img_pipe = self._img_pipe._core_likelihood
+        self._img_pipe._core_likelihood = self._core_likelihood
+        self.ensemble_size = self._ensemble_size
+
     # Override method to use attributes from _img_pipe
     def __getattribute__(self, name):
         if(name not in PRISMPipeline.overridden_attrs
-           and not name.startswith('__')
-           and name in self._img_pipe.__dir__()):
-            return(getattr(self._img_pipe, name))
+           and not name.startswith('__')):
+            try:
+                return(getattr(self._img_pipe, name))
+            except AttributeError:
+                return(super().__getattribute__(name))
         else:
             return(super().__getattribute__(name))
 
     # Override method to use attributes from _img_pipe
     def __setattr__(self, name, value):
         if(name not in PRISMPipeline.overridden_attrs
-           and not name.startswith('__')
-           and name in self._img_pipe.__dir__()):
-            setattr(self._img_pipe, name, value)
+           and not name.startswith('__')):
+            try:
+                setattr(self._img_pipe, name, value)
+            except AttributeError:
+                super().__setattr__(name, value)
         else:
             super().__setattr__(name, value)
 
     # Override method to use attributes from _img_pipe
     def __delattr__(self, name):
         if(name not in PRISMPipeline.overridden_attrs
-           and not name.startswith('__')
-           and name in self._img_pipe.__dir__()):
-            delattr(self._img_pipe, name)
+           and not name.startswith('__')):
+            try:
+                delattr(self._img_pipe, name)
+            except AttributeError:
+                super().__delattr__(name)
         else:
             super().__delattr__(name)
 
@@ -145,8 +156,7 @@ class PRISMPipeline(imagine_Pipeline):
     # Override _core_likelihood
     def _core_likelihood(self, cube):
         # Convert provided cube to proper parameter set for PRISM
-        sam = np.array(cube[self._par_index], ndmin=2)
-        sam = self._prism_pipe._modellink._to_par_space(sam)
+        sam = np.array(cube, ndmin=2)[:, self._par_index]
 
         # Check if par_set is within parameter space and return -inf if not
         par_rng = self._prism_pipe._modellink._par_rng
@@ -172,7 +182,7 @@ class PRISMPipeline(imagine_Pipeline):
 
         # If par_set is plausible, call likelihood method of _img_pipe
         if len(impl_sam):
-            return(lnprior+self._img_pipe._core_likelihood(cube))
+            return(lnprior+self._core_likelihood_img_pipe(cube))
 
         # If par_set is not plausible, return -inf
         else:
