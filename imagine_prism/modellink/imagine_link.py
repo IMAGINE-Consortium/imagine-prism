@@ -77,7 +77,7 @@ class IMAGINELink(ModelLink):
                 est = factory.default_parameters[par].to_value()
 
                 # Add this parameter to the dict
-                model_par[par] = [*rng, est]
+                model_par["%s_%s" % (factory.name, par)] = [*rng, est]
 
         # Return model_par
         return(model_par)
