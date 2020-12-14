@@ -103,8 +103,8 @@ class IMAGINELink(ModelLink):
             # Obtain the data values
             data_val = meas.data[0]
 
-            # Obtain the data errors
-            data_err = np.diag(cov.data)
+            # Obtain the data errors (from the variances)
+            data_err = cov.var
 
             # Convert coordinates into a format for PRISM
             coords_list = self._convert_coords(meas.coords)
