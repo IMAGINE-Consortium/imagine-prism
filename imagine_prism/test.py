@@ -94,8 +94,7 @@ def tutorial_one():
                                  ensemble_size=150)
 
     # Create PRISMPipeline object
-    pipe = PRISMPipeline(img_pipe, root_dir='tests', working_dir='imagine_1')
-
+    pipe = PRISMPipeline(img_pipe, root_dir='/tmp/tests', working_dir='imagine_1')
     # Return pipe
     return(pipe)
 
@@ -197,8 +196,8 @@ def tutorial_five():
     pipeline.sampling_controllers = {'n_live_points': 50}
 
     # Create PRISMPipeline object
-    pipe = PRISMPipeline(pipeline, root_dir='/home/x1313e/stack/PhD/PRISM_Root/tests', working_dir='imagine_5',
-                         prism_par={'n_sam_init': 100})
+    pipe = PRISMPipeline(pipeline, root_dir='/tmp/tests', working_dir='imagine_5',
+                         prism_par={'n_sam_init': 300})
 
     # Return pipe
     return(pipe)

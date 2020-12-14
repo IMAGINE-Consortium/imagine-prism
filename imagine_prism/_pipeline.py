@@ -182,8 +182,8 @@ class PRISMPipeline(imagine_Pipeline):
 
         # If par_set is plausible, call likelihood method of _img_pipe
         if len(impl_sam):
-            return(lnprior+self._core_likelihood_img_pipe(cube))
+            return lnprior + self._core_likelihood_img_pipe(cube)
 
         # If par_set is not plausible, return -inf
         else:
-            return(-np.infty)
+            return np.nan_to_num(-np.infty)
