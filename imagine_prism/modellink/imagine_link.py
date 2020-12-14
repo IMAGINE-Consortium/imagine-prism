@@ -107,7 +107,7 @@ class IMAGINELink(ModelLink):
             data_err = cov.var
 
             # Convert coordinates into a format for PRISM
-            coords_list = self._convert_coords(meas.coords)
+            coords_list = self._convert_coords(meas.coords, meas.otype)
 
             # Add every data point individually
             for coord, val, err in zip(coords_list, data_val, data_err):
@@ -121,7 +121,7 @@ class IMAGINELink(ModelLink):
         return(model_data)
 
     # This function converts the coords dict to a proper format
-    def _convert_coords(self, coords):
+    def _convert_coords(self, coords, otype):
         """
         Converts the provided `coords` into a format that *PRISM* can use for
         ídentifying data points.
@@ -129,7 +129,7 @@ class IMAGINELink(ModelLink):
         """
 
         # Make sure that coords is not None
-        if coords is not None:
+        if otype == 'tabular':
             # Determine the coordinates type
             coords_type = coords['type']
 
