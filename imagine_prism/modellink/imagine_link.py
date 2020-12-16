@@ -165,7 +165,7 @@ class IMAGINELink(ModelLink):
         # Loop over all observables
         for key, obs in sims.archive.items():
             # Convert coordinates into a format for PRISM
-            coords_list = self._convert_coords(obs.coords)
+            coords_list = self._convert_coords(obs.coords, obs.otype)
 
             # Take the average over all ensembles
             data = np.average(obs.data, axis=0)
